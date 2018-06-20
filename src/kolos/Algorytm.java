@@ -7,11 +7,8 @@ package kolos;
 
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 
 /**
  *
@@ -24,15 +21,20 @@ public class Algorytm implements Iterator<String> {
     private int currentStep = 0;
     private int markedZerosCount = 0;
     private ArrayList<ArrayList<Integer>> _matrix = new ArrayList<>();
+    private ArrayList<ArrayList<Integer>> _matrixOriginal = new ArrayList<>();
+    //2 znalezione zero niezależne, 1 użyty wiersz tego zera, 0 nie wykresolne pole
     private ArrayList<ArrayList<Integer>> _markedZeros = new ArrayList<>();
+    //Marked lines with 1, crossing lines with 2, unused with 0.
     private ArrayList<ArrayList<Integer>> _markedLines = new ArrayList<>();
     private ArrayList<IStep> steps = new ArrayList<>();
 
     public Algorytm(Wegier window) {
         _window = window;
+        steps.add(Step0);
         steps.add(Step1);
         steps.add(Step2);
         steps.add(Step3);
+        steps.add(Step4);
     }
 
     public String TestPaintMZ() {
@@ -59,8 +61,8 @@ public class Algorytm implements Iterator<String> {
         return text;
     }
 
-    public void SetText(String text) {
-        _matrix = new ArrayList<ArrayList<Integer>>();
+    public ArrayList<ArrayList<Integer>> SetText(String text) {
+        ArrayList<ArrayList<Integer>> matrix = new ArrayList<>();
         String[] rows = text.split("\n");
         for (String row : rows) {
             ArrayList<Integer> indexedRow = new ArrayList<>();
@@ -68,9 +70,10 @@ public class Algorytm implements Iterator<String> {
             for (String index : indexs) {
                 indexedRow.add(Integer.parseInt(index));
             }
-            _matrix.add(indexedRow);
+            matrix.add(indexedRow);
 
         }
+        return matrix;
     }
 
     /**
@@ -90,7 +93,7 @@ public class Algorytm implements Iterator<String> {
     }
 
     private int MinInRow(int rowIndex) {
-        int min = 9999;
+        int min = Integer.MAX_VALUE;
         for (int i = 0; i < _matrix.get(rowIndex).size(); ++i) {
             if (_matrix.get(rowIndex).get(i) < min) {
                 min = _matrix.get(rowIndex).get(i);
@@ -100,7 +103,7 @@ public class Algorytm implements Iterator<String> {
     }
 
     private int MinInCol(int colIndex) {
-        int min = 9999;
+        int min = Integer.MAX_VALUE;
         for (ArrayList<Integer> row : _matrix) {
             if (min > row.get(colIndex)) {
                 min = row.get(colIndex);
@@ -120,23 +123,96 @@ public class Algorytm implements Iterator<String> {
      * spradzamy pkt przecięcia potrzeba gdzies przechowac dane zero jakie
      * wymazalo wiersz na true koordynaty znalezionego zera wbijammy 2
      */
-    private void FindRowNZero() {
+    private boolean FindSolution() {
+        int zeroCount = 0;
+        int HitZero = 0;
+        for (int row = 0; row < _matrix.size(); ++row) {
+            for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                //jesteśmy w wierszu od lewej do prawej.
+                if (_matrix.get(row).get(column) == 0) {
+                    ++zeroCount;
+                }
+            }
+        }
+        Tickler tickler = new Tickler((long) Math.pow(2, zeroCount));
+        String tick;
+        int zeroIndex = 0;
+        while (tickler.hasNext()) {
+            tick = tickler.next();
+            System.out.println(tick);
+            for (int row = 0; row < _matrix.size(); ++row) {
+                for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                    //jesteśmy w wierszu od lewej do prawej.
+                    if (_matrix.get(row).get(column) == 0) {
+                        ++zeroIndex;
+                        if (_markedZeros.get(row).get(column) == 0 && tick.charAt(zeroIndex) == '1') {
+                            for (int ccolumn = 0; ccolumn < _matrix.get(row).size(); ++ccolumn) {
+                                _markedZeros.get(row).set(ccolumn, 1);
+                            }
+                            for (ArrayList<Integer> rrow : _markedZeros) {
+                                rrow.set(column, 1);
+                            }
+                            _markedZeros.get(row).set(column, 2);
+                            ++HitZero;
+                            break;
+                            //greedy szukamy tylko pierwszego
+                        }
+                    }
+                }
+
+            }
+            if (HitZero == _matrix.size()) {
+                return true;
+            }
+            ResetMarkedZeros();
+            HitZero = 0;
+            zeroIndex = 0;
+        }
+        return false;
+    }
+
+    private void FindNZeros() {
         for (int row = 0; row < _matrix.size(); ++row) {
             for (int column = 0; column < _matrix.get(row).size(); ++column) {
                 //jesteśmy w wierszu od lewej do prawej.
                 if (_matrix.get(row).get(column) == 0
                         && _markedZeros.get(row).get(column) == 0) {
-                    for (int ccolumn = 0; ccolumn < _matrix.get(row).size(); ++ccolumn) {
-                        _markedZeros.get(row).set(ccolumn, 1);
+                    {
+                        for (int ccolumn = 0; ccolumn < _matrix.get(row).size(); ++ccolumn) {
+                            _markedZeros.get(row).set(ccolumn, 1);
+                        }
+                        for (ArrayList<Integer> rrow : _markedZeros) {
+                            rrow.set(column, 1);
+                        }
+                        _markedZeros.get(row).set(column, 2);
+                        ++markedZerosCount;
+                        break;
+                        //greedy szukamy tylko pierwszego
                     }
-                    for (ArrayList<Integer> rrow : _markedZeros) {
-                        rrow.set(column, 1);
-                    }
-                    _markedZeros.get(row).set(column, 2);
-                    ++markedZerosCount;
-                    break;
-                    //greedy szukamy tylko pierwszego
 
+                }
+
+            }
+        }
+    }
+
+    private void ReduceUnMaskedValues() {
+        int min = Integer.MAX_VALUE;
+        for (int row = 0; row < _matrix.size(); ++row) {
+            for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                if (_markedLines.get(row).get(column) == 0 && _matrix.get(row).get(column) < min) {
+                    min = _matrix.get(row).get(column);
+
+                }
+            }
+        }
+        for (int row = 0; row < _matrix.size(); ++row) {
+            for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                if (_markedLines.get(row).get(column) == 0) {
+                    _matrix.get(row).set(column, _matrix.get(row).get(column) - min);
+                }
+                if (_markedLines.get(row).get(column) == 2) {
+                    _matrix.get(row).set(column, _matrix.get(row).get(column) + min);
                 }
             }
         }
@@ -148,37 +224,56 @@ public class Algorytm implements Iterator<String> {
      * zero zostaje przykryte to w masce jest na 1.
      */
     private void MakeMarkedLines() throws Exception {
-
         boolean masked = false;
-        int fuse = (int) Math.pow(2, markedZerosCount); // przypadków jest 2^n jak do tylu dojdzie to Throw Unvcmputable example!  
-        int TryedMasekd = 0;
+        // przypadków jest 2^n jak do tylu dojdzie to Throw Unvcmputable example!  
+        Tickler tickler = new Tickler((long) Math.pow(2, markedZerosCount));
         int MaskedCount = 0;
-        int StartColumn = 0;
-        while (!masked) {
+        String tick;
+        while (tickler.hasNext()) {
             //Always draw line that get through found marked zero . Vertically
-            // or horizontally.
+            // or horizontally.            
+            tick = tickler.next();
+            System.out.println(tick);
+            // 1 |
+            // 0 -
             for (int row = 0; row < _matrix.size(); ++row) {
                 for (int column = 0; column < _matrix.get(row).size(); ++column) {
                     if (_markedZeros.get(row).get(column) == 2) {
-                        for (int ccolumn = 0; ccolumn < _matrix.get(row).size(); ++ccolumn) {
-                            _markedLines.get(row).set(ccolumn, 1);
+                        if (tick.charAt(MaskedCount) == '0') {
+                            for (int ccolumn = 0; ccolumn < _matrix.get(row).size(); ++ccolumn) {
+                                _markedLines.get(row).set(ccolumn, _markedLines.get(row).get(ccolumn) + 1);
+                            }
+                        } else {
+                            for (int rrow = 0; rrow < _matrix.size(); ++rrow) {
+                                _markedLines.get(rrow).set(column, _markedLines.get(rrow).get(column) + 1);
+                            }
                         }
+                        ++MaskedCount;
+                    }
+                }
+            }
+            //find unmasekd zero. if not all are masked set masked to false.
+            masked = true;
+            for (int row = 0; row < _matrix.size(); ++row) {
+                for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                    if (_markedLines.get(row).get(column) == 0
+                            && _matrix.get(row).get(column) == 0) {
+                        masked = false;
                     }
                 }
             }
 
-            //find unmasekd zero. if all are masked set masked =truse.
             if (markedZerosCount == MaskedCount && !masked) {
                 MaskedCount = 0;
                 ResetMaskedLines();
-                ++StartColumn;
             }
-            if (TryedMasekd == fuse) {
-                throw new Exception(String.format("Solution not found after %d lines coverage attempts", fuse));
+            if (markedZerosCount == MaskedCount && masked) {
+                return;
             }
-            ++TryedMasekd;
         }
-    }   
+
+        throw new Exception(String.format("Solution not found after %d lines coverage attempts", (long) Math.pow(2, markedZerosCount)));
+    }
 
     private void ResetMaskedLines() {
         _markedLines = new ArrayList<>();
@@ -207,9 +302,16 @@ public class Algorytm implements Iterator<String> {
         }
     }
 
-    private final IStep Step1 = new IStep() {
+    /**
+     * Znajdujemy minimalny element w każdym wierszu (yi minimalne). Odejmujemy
+     * od danego wiersza tenże element:
+     */
+    private final IStep Step0 = new IStep() {
         @Override
         public ArrayList<ArrayList<Integer>> actionPerformed(ArrayList<ArrayList<Integer>> matrix) {
+            matrix = SetText(_window.getJTP().getText());
+            _matrix = SetText(_window.getJTP().getText());
+            _matrixOriginal = SetText(_window.getJTP().getText());
             for (int i = 0; i < matrix.size(); ++i) {
                 int min = MinInRow(i);
                 for (int j = 0; j < matrix.get(i).size(); ++j) {
@@ -221,7 +323,12 @@ public class Algorytm implements Iterator<String> {
 
     };
 
-    private final IStep Step2 = new IStep() {
+    /**
+     * W otrzymanej macierzy zaznaczamy z kolei minimalny element w każdej
+     * kolumnie(zj minimalne). Również w tym przypadku odejmujemy ten element,
+     * ale od danej kolumny
+     */
+    private final IStep Step1 = new IStep() {
         @Override
         public ArrayList<ArrayList<Integer>> actionPerformed(ArrayList<ArrayList<Integer>> matrix) {
             ArrayList<Integer> minCol = new ArrayList<>();
@@ -238,11 +345,19 @@ public class Algorytm implements Iterator<String> {
         }
     };
 
-    private final IStep Step3 = new IStep() {
+    /**
+     * wykreśl wszystkie zera macierzy liniami , liczba linii = obecnej liczbie
+     * zer niezależnych
+     */
+    private final IStep Step2 = new IStep() {
         @Override
         public ArrayList<ArrayList<Integer>> actionPerformed(ArrayList<ArrayList<Integer>> matrix) {
             ResetMarkedZeros();
-            FindRowNZero();
+            FindNZeros();
+            //else potrzeba zacząć minimalizować 
+            if (markedZerosCount == _matrix.size()) {
+                return matrix;
+            }
             ResetMaskedLines();
             try {
                 MakeMarkedLines();
@@ -252,8 +367,49 @@ public class Algorytm implements Iterator<String> {
                 return matrix;
             }
 
+            ReduceUnMaskedValues();
+
             return matrix;
         }
+    };
+
+    private final IStep Step3 = new IStep() {
+        @Override
+        public ArrayList<ArrayList<Integer>> actionPerformed(ArrayList<ArrayList<Integer>> matrix) {
+            ResetMarkedZeros();
+            if (FindSolution()) {
+            } else {
+                /**
+                 * W przeciwnym wypadku, moglibyśmy zredukować macierz
+                 * (powtórnie odjąć minimalny element w wierszach lub/i
+                 * kolumnach).
+                 */
+                currentStep = 2;
+            }
+            return matrix;
+        }
+    };
+
+    private final IStep Step4 = new IStep() {
+        @Override
+        public ArrayList<ArrayList<Integer>> actionPerformed(ArrayList<ArrayList<Integer>> matrix) {
+            int solution = 0;
+            String msg = "wartość funkcji celu ";
+
+            for (int row = 0; row < _matrix.size(); ++row) {
+                for (int column = 0; column < _matrix.get(row).size(); ++column) {
+                    if (_markedZeros.get(row).get(column) == 2) {
+                        solution += _matrixOriginal.get(row).get(column);
+                        msg = msg.concat(String.format("%d + ", _matrixOriginal.get(row).get(column)));
+                    }
+                }
+            }
+            msg = msg.substring(0, msg.length() - 2);
+            _window.getJLMsg().setText(String.format("%s = %d", msg, solution));
+            _window.getJTPMask().setText(TestPaintMZ());
+            return _matrixOriginal;
+        }
+
     };
 
     @Override
@@ -264,11 +420,8 @@ public class Algorytm implements Iterator<String> {
     @Override
     public String next() {
         if (hasNext()) {
-            try {
-                _matrix = steps.get(currentStep).actionPerformed(_matrix);
-            } catch (Exception ex) {
-                Logger.getLogger(Algorytm.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            _matrix = steps.get(currentStep).actionPerformed(_matrix);
+
             currentStep++;
         }
         return Paint();

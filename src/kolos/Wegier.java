@@ -7,6 +7,7 @@ package kolos;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JTextPane;
 
 /**
  *
@@ -31,11 +32,17 @@ public class Wegier extends javax.swing.JPanel {
     public JButton getJBNext() {
         return JBNext;
     }
+
+    public JTextPane getJTP() {
+        return JTP;
+    }
+
+    public JTextPane getJTPMask() {
+        return JTPMask;
+    }
     
     
 
-    
-    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -120,8 +127,6 @@ public class Wegier extends javax.swing.JPanel {
 
     private void JBNextActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_JBNextActionPerformed
         // TODO add your handling code here:        
-        alg.SetText(JTP.getText());
-
         JTP.setText(alg.next());
 
     }//GEN-LAST:event_JBNextActionPerformed
