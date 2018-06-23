@@ -23,34 +23,45 @@
  */
 package AlgoWiedenski;
 
-import java.util.Iterator;
+import java.awt.BorderLayout;
+import java.awt.Dimension;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 /**
  *
- * @author Michal
+ * @author michal
  */
-public class Tickler implements Iterator<String> {
+public class Main extends JFrame {
+    
+    private static JPanel mainPanel;
+    private static Wegier wegier;
 
-    private final long _limit;
-    private long _cursor;
-
-    public Tickler(long limit) {
-        _limit = limit;
-        _cursor = limit*2;
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) {
+        // TODO code application logic here
+        new Main();
     }
-
-    @Override
-    public boolean hasNext() {
-        return _limit < _cursor;
-
+    
+    public Main() {
+        super();
+        setTitle("Algorytm wegierski");
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        
+        mainPanel = new JPanel();
+        mainPanel.setLayout(new BorderLayout());
+        wegier = new Wegier();
+        setContentPane(mainPanel);
+        mainPanel.add(wegier);
+        mainPanel.revalidate();
+        mainPanel.repaint();
+        
+        pack();
+        setVisible(true);
+        setSize(new Dimension(600, 600));
+        
     }
-
-    @Override
-    public String next() {
-        if (hasNext()) {
-            --_cursor;
-        }
-        return Long.toBinaryString(_cursor);
-    }
-
+    
 }
